@@ -304,7 +304,7 @@ function vToday(){
  const st=S.settings,d=S.days[sel]||{},ph=phaseOf(sel),pl=planned(sel),rv=ringVals(d),stk=streak();
  const chTot=diff(st.start,st.challengeEnd),chDone=Math.max(0,Math.min(chTot,diff(st.start,TODAY)));
  const toFeb=diff(TODAY,st.skiFeb),toDec=st.skiDec?diff(TODAY,st.skiDec):null,toCh=diff(TODAY,st.challengeEnd);
- const ses=d.sport&&SES[d.sport]?d.sport:(openSes||pl);
+ const ses=openSes||d.sport||pl;
  const idea=REC[(diff('2026-01-01',sel)%REC.length+REC.length)%REC.length];
  const wk=weekCount(sel);
  return `
@@ -326,11 +326,12 @@ function vToday(){
 
  <div class="card"><div class="row between"><h2>Sport</h2><span class="xp">+20</span></div>
   <p class="mute small">${pl?`Prévu : séance ${pl} · ${SES[pl].n}`:'Jour de repos prévu. Tu peux quand même bouger.'}</p>
-  <div class="chips">${['A','B','C'].map(x=>`<button class="pill ${ses===x?'on':''}" data-ses="${x}">${x} · ${SES[x].n.split(' ')[0]}</button>`).join('')}<button class="pill ${d.sport==='run'?'on':''}" data-done="run">Course</button><button class="pill ${d.sport==='ski'?'on':''}" data-done="ski">Ski</button></div>
+  <div class="chips">${['A','B','C'].map(x=>`<button class="pill ${ses===x?'on':''}" data-ses="${x}">${x} · ${SES[x].n.split(' ')[0]}</button>`).join('')}<button class="pill ${ses==='run'?'on':''}" data-ses="run">Course</button><button class="pill ${ses==='ski'?'on':''}" data-ses="ski">Jour de ski</button></div>
   ${ses&&SES[ses]?`<p class="small" style="margin-top:12px"><b>${SES[ses].n}</b> <span class="mute">${SES[ses].why}</span></p><div class="row between" style="background:var(--card2);border-radius:14px;padding:10px 12px;margin:10px 0 4px"><span class="small">${SES[ses].plan}</span><div class="row" style="gap:6px;flex:none"><button class="pill" data-rest="90" id="rest90" style="background:var(--acc);color:#000">1:30</button><button class="pill" data-rest="120" id="rest120" style="background:var(--acc);color:#000">2:00</button></div></div><p class="small" style="margin:6px 0 0"><b style="color:var(--acc)">Bonus si tu as 1 h 30 :</b> <span class="mute">${SES[ses].bonus}</span></p><div>${SES[ses].ex.map((e,i)=>{const on=d.ex&&d.ex[ses+i];return `<div class="ex"><button class="chk ${on?'on':''}" data-ex="${ses+i}" aria-label="Fait : ${e[0]}">${on?CHECK:''}</button><div><b>${e[0]}</b><div class="tip">${e[2]}</div></div><div class="rx">${e[1][ph]}</div></div>`}).join('')}</div>
-  <button class="cta ${d.sport===ses?'done':''}" data-done="${ses}" style="width:100%;margin-top:12px">${d.sport===ses?'Séance validée ✓':'Valider la séance'}</button>`:''}
-  ${d.sport==='run'?`<p class="small" style="margin-top:12px"><b>Course :</b> ${RUN.rx[ph]}. <span class="mute">${RUN.txt}</span></p>`:''}
-  ${d.sport&&!SES[d.sport]?`<button class="cta ghost" data-done="${d.sport}" style="width:100%;margin-top:12px">Annuler</button>`:''}
+  <button class="cta ${d.sport===ses?'done':''}" data-done="${ses}" style="width:100%;margin-top:12px">${d.sport===ses?'Séance validée ✓ · annuler':'Valider la séance'}</button>`:''}
+  ${ses==='run'?`<p class="small" style="margin-top:12px"><b>Course à pied :</b> ${RUN.rx[ph]}. <span class="mute">${RUN.txt}</span></p><button class="cta ${d.sport==='run'?'done':''}" data-done="run" style="width:100%;margin-top:12px">${d.sport==='run'?'Course validée ✓ · annuler':'Valider la course'}</button>`:''}
+  ${ses==='ski'?`<p class="small" style="margin-top:12px"><b>Jour de ski :</b> <span class="mute">à cocher seulement les jours où tu skies vraiment. Ça compte comme une séance.</span></p><button class="cta ${d.sport==='ski'?'done':''}" data-done="ski" style="width:100%;margin-top:12px">${d.sport==='ski'?'Ski validé ✓ · annuler':'Valider la journée de ski'}</button>`:''}
+
  </div>
 
 
