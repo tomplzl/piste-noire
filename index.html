@@ -87,6 +87,7 @@ button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid
 .weight{display:flex;gap:10px;align-items:center;margin-top:8px}
 .weight input{flex:1;background:var(--card2);border:0;border-radius:14px;padding:12px 14px;color:var(--ink);font:800 26px "Barlow Condensed";font-style:italic;width:100%}
 .glasses{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px;margin-top:10px}.glasses i{height:26px;border-radius:5px 5px 8px 8px;background:var(--card2);border:1px solid var(--line)}.glasses i.on{background:var(--ass);border-color:var(--ass)}
+.work{position:fixed;inset:0;z-index:25;background:var(--bg);overflow:auto;padding:calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom))}.workIn{max-width:640px;margin:0 auto}
 .intr{position:fixed;inset:0;z-index:30;background:radial-gradient(120% 80% at 80% 0%,#3a1606,#0a0a0b 60%);display:grid;place-items:center;padding:calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));overflow:auto}.intrIn{width:100%;max-width:460px}
 .idea{background:linear-gradient(135deg,#0f2533,#13161b);border-radius:18px;padding:14px;margin-top:12px}
 /* calendrier */
@@ -105,6 +106,7 @@ button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid
 .ph i{border-radius:8px}
 .ph.cur{outline:2px solid var(--acc)}
 .ph b{font-family:"Barlow Condensed";font-size:20px;font-style:italic;text-transform:uppercase}
+details.mini{background:none;margin:10px 0 0;border-top:1px solid var(--line);border-radius:0}details.mini summary{padding:12px 0;min-height:48px}
 details{background:var(--card);border-radius:22px;margin:0 0 12px;overflow:hidden}
 summary{list-style:none;padding:16px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:56px}
 summary::-webkit-details-marker{display:none}
@@ -173,7 +175,7 @@ const MOIS=['janvier','février','mars','avril','mai','juin','juillet','août','
 const fmt=s=>{const d=P(s);return `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]}`};
 
 /* Synchro Apple Santé via Raccourci iOS : ?d=AAAA-MM-JJ&pas=..&kcal=..&fc=..&vo2=..&min=..&poids=.. */
-let HSYNC=false,INTR=null;
+let HSYNC=false,INTR=null,WORK=false;
 const RS={ig:'Instagram',fb:'Facebook',yt:'YouTube'};
 const ALT=[['podcast','Podcast'],['musique','Musique'],['livre','Livre'],['film','Film choisi']];
 try{const q=new URLSearchParams(location.search),o=q.get('open');if(o&&RS[o]){const k=iso(new Date()),x=S.days[k]||(S.days[k]={});x.op=x.op||{};x.op[o]=(x.op[o]||0)+1;save();INTR=o;history.replaceState(null,'',location.pathname+'#today')}}catch(e){}
@@ -332,8 +334,7 @@ function vToday(){
  <div class="card"><div class="row between"><h2>Sport</h2><span class="xp">+20</span></div>
   <p class="mute small">${pl?`Prévu : séance ${pl} · ${SES[pl].n}`:'Jour de repos prévu. Tu peux quand même bouger.'}</p>
   <div class="chips">${['A','B','C'].map(x=>`<button class="pill ${ses===x?'on':''}" data-ses="${x}">${x} · ${SES[x].n.split(' ')[0]}</button>`).join('')}<button class="pill ${ses==='run'?'on':''}" data-ses="run">Course</button><button class="pill ${ses==='ski'?'on':''}" data-ses="ski">Jour de ski</button></div>
-  ${ses&&SES[ses]?`<p class="small" style="margin-top:12px"><b>${SES[ses].n}</b> <span class="mute">${SES[ses].why}</span></p><div class="row between" style="background:var(--card2);border-radius:14px;padding:10px 12px;margin:10px 0 4px"><span class="small">${SES[ses].plan}</span><div class="row" style="gap:6px;flex:none"><button class="pill" data-rest="90" id="rest90" style="background:var(--acc);color:#000">1:30</button><button class="pill" data-rest="120" id="rest120" style="background:var(--acc);color:#000">2:00</button></div></div><p class="small" style="margin:6px 0 0"><b style="color:var(--acc)">Bonus si tu as 1 h 30 :</b> <span class="mute">${SES[ses].bonus}</span></p><div>${SES[ses].ex.map((e,i)=>{const on=d.ex&&d.ex[ses+i];return `<div class="ex"><button class="chk ${on?'on':''}" data-ex="${ses+i}" aria-label="Fait : ${e[0]}">${on?CHECK:''}</button><div><b>${e[0]}</b><div class="tip">${e[2]}</div></div><div class="rx">${e[1][ph]}</div></div>`}).join('')}</div>
-  <button class="cta ${d.sport===ses?'done':''}" data-done="${ses}" style="width:100%;margin-top:12px">${d.sport===ses?'Séance validée ✓ · annuler':'Valider la séance'}</button>`:''}
+  ${ses&&SES[ses]?(()=>{const nd=SES[ses].ex.filter((_,i)=>d.ex&&d.ex[ses+i]).length,nt=SES[ses].ex.length;return `<div class="row between" style="margin-top:12px"><div><b>${SES[ses].n}</b><div class="small mute">${SES[ses].plan.split(' · ')[0]} · ${nd}/${nt} exercices</div></div></div><div class="bar"><i style="width:${nd/nt*100}%"></i></div>${d.sport===ses?`<button class="cta done" data-work="1" style="width:100%;margin-top:12px">Séance validée ✓ · revoir</button>`:`<button class="cta" data-work="1" style="width:100%;margin-top:12px">${nd?'Reprendre la séance':'Démarrer la séance'}</button>`}`})():''}
   ${ses==='run'?`<p class="small" style="margin-top:12px"><b>Course à pied :</b> ${RUN.rx[ph]}. <span class="mute">${RUN.txt}</span></p><button class="cta ${d.sport==='run'?'done':''}" data-done="run" style="width:100%;margin-top:12px">${d.sport==='run'?'Course validée ✓ · annuler':'Valider la course'}</button>`:''}
   ${ses==='ski'?`<p class="small" style="margin-top:12px"><b>Jour de ski :</b> <span class="mute">à cocher seulement les jours où tu skies vraiment. Ça compte comme une séance.</span></p><button class="cta ${d.sport==='ski'?'done':''}" data-done="ski" style="width:100%;margin-top:12px">${d.sport==='ski'?'Ski validé ✓ · annuler':'Valider la journée de ski'}</button>`:''}
 
@@ -341,15 +342,14 @@ function vToday(){
 
 
  <div class="card"><div class="row between"><h2>Eau</h2><span class="xp">+5</span></div>
-  <div class="row between" style="margin-top:6px;align-items:flex-end"><div class="num" style="font-size:54px;font-style:italic">${((d.wa||0)/1000).toFixed(2).replace('.',',').replace(/0$/,'')}<small style="font-size:22px"> L</small></div><span class="mute small" style="padding-bottom:10px">objectif ${(wGoal(d)/1000).toFixed(1).replace('.',',')} L${d.sport?' (jour de sport)':''}</span></div>
+  <div class="row between" style="margin-top:6px;align-items:flex-end"><div class="num" style="font-size:42px;font-style:italic">${((d.wa||0)/1000).toFixed(2).replace('.',',').replace(/0$/,'')}<small style="font-size:22px"> L</small></div><span class="mute small" style="padding-bottom:10px">objectif ${(wGoal(d)/1000).toFixed(1).replace('.',',')} L${d.sport?' (jour de sport)':''}</span></div>
   <div class="glasses">${Array.from({length:Math.ceil(wGoal(d)/250)},(_,i)=>`<i class="${(d.wa||0)>=(i+1)*250?'on':''}"></i>`).join('')}</div>
   <div class="row" style="margin-top:12px"><button class="pill" data-wa="250">+ Verre 25 cl</button><button class="pill" data-wa="500">+ Bouteille 50 cl</button><button class="pill" data-wa="-250" aria-label="Retirer 25 cl">−</button></div>
-  <p class="small mute" style="margin-top:8px">Un grand verre au réveil, un avant chaque repas, une bouteille pendant la séance. Faim à 17 h ? Bois d'abord.</p>
  </div>
  <div class="card"><div class="row between"><h2>Assiette</h2><span class="xp">+10</span></div>
   <button class="toggle" data-t="snack"><span class="chk ${d.snack?'on':''}">${d.snack?CHECK:''}</span><div><b>Zéro grignotage</b><span>Une collation prévue est autorisée</span></div></button>
   <button class="toggle" data-t="plate"><span class="chk ${d.plate?'on':''}">${d.plate?CHECK:''}</span><div><b>Dîner équilibré</b><span>½ légumes · ¼ protéine · ¼ féculents max</span></div></button>
-  <div class="idea"><span class="small mute">Idée de dîner en famille</span><h3 style="margin-top:2px">${idea.n}</h3><p class="small mute">${idea.t} · ${idea.p}</p><button class="pill" data-go="food" style="margin-top:8px">Voir la recette</button></div>
+  <button class="idea" data-go="food" style="display:flex;width:100%;text-align:left;align-items:center;justify-content:space-between;gap:10px"><span><span class="small mute">Idée pour ce soir</span><b style="display:block">${idea.n}</b></span><span class="num" style="font-size:26px;color:var(--acc)">›</span></button>
  </div>
 
 
@@ -357,12 +357,12 @@ function vToday(){
   ${(()=>{const op=d.op||{},tot=Object.values(op).reduce((a,b)=>a+b,0);return `<div class="legend" style="margin-top:10px">${Object.keys(RS).map(k=>`<div style="background:var(--card2)"><span>${RS[k]}</span><b>${op[k]||0}</b></div>`).join('')}</div><p class="small mute" style="margin-top:6px">${tot?`${tot} ouverture${tot>1?'s':''} aujourd'hui.`:'Aucune ouverture comptée aujourd\'hui.'} ${S.settings.scrGoal} min de réseaux par jour maximum.</p>`})()}
   <label class="small mute" for="scr" style="display:block;margin-top:10px">Temps sur les réseaux (Réglages → Temps d'écran), le soir</label>
   <div class="weight"><input id="scr" type="number" inputmode="numeric" min="0" max="900" placeholder="—" value="${d.scr!=null?d.scr:''}"><span class="num" style="font-size:22px">min</span></div>
-  <p class="small" style="margin-top:12px"><b>À la place, aujourd'hui :</b></p>
-  <div class="chips" style="margin-top:6px">${ALT.map(a=>`<button class="pill ${(d.alt||[]).includes(a[0])?'on':''}" data-alt="${a[0]}">${a[1]}</button>`).join('')}</div>
+  <details class="mini" ${d.alt&&d.alt.length?'open':''}><summary><b>À la place, aujourd'hui${d.alt&&d.alt.length?' · '+d.alt.length:''}</b></summary>
+  <div class="chips" style="margin-top:0;padding-bottom:12px">${ALT.map(a=>`<button class="pill ${(d.alt||[]).includes(a[0])?'on':''}" data-alt="${a[0]}">${a[1]}</button>`).join('')}</div></details>
  </div>
- <div class="card"><div class="row between"><h2>Poids</h2><span class="mute small">1 pesée / semaine, le matin à jeun</span></div>
-  <div class="weight"><input id="w" type="number" inputmode="decimal" step="0.1" placeholder="—" value="${d.w||''}" aria-label="Poids en kg"><span class="num" style="font-size:22px">kg</span></div>
- </div>`}
+ <details class="card" style="padding:0"><summary style="padding:16px 18px"><div><h2>Poids</h2><span class="small mute">${(()=>{const ks=Object.keys(S.days).filter(k=>S.days[k].w&&k<=sel).sort();return ks.length?`Dernière pesée : ${S.days[ks[ks.length-1]].w} kg, ${fmt(ks[ks.length-1])}`:'1 pesée par semaine, le matin à jeun'})()}</span></div></summary>
+  <div class="det"><div class="weight" style="margin-top:0"><input id="w" type="number" inputmode="decimal" step="0.1" placeholder="—" value="${d.w||''}" aria-label="Poids en kg"><span class="num" style="font-size:22px">kg</span></div></div>
+ </details></div>`}
 
 function vCal(){
  const[y,m]=calM.split('-').map(Number);const first=new Date(y,m-1,1),n=new Date(y,m,0).getDate(),off=(first.getDay()+6)%7,st=S.settings;
@@ -466,6 +466,12 @@ function drawW(){drawLine('wsvg',x=>x.w||null,'',1);drawLine('fsvg',x=>x.h&&x.h.
 const wro=new ResizeObserver(drawW);
 
 
+function vWork(){const d=S.days[sel]||{},ph=phaseOf(sel),pl=planned(sel),ses=SES[openSes]?openSes:SES[d.sport]?d.sport:pl||'A';
+ return `<div class="work"><div class="workIn"><div class="row between" style="margin-bottom:10px"><span class="small mute">${PH[ph].n} · ${sel===TODAY?'aujourd\'hui':fmt(sel)}</span><button class="pill" data-wclose="1">Fermer</button></div>
+ <h1>Séance ${ses}</h1>
+  ${ses&&SES[ses]?`<p class="small" style="margin-top:12px"><b>${SES[ses].n}</b> <span class="mute">${SES[ses].why}</span></p><div class="row between" style="background:var(--card2);border-radius:14px;padding:10px 12px;margin:10px 0 4px"><span class="small">${SES[ses].plan}</span><div class="row" style="gap:6px;flex:none"><button class="pill" data-rest="90" id="rest90" style="background:var(--acc);color:#000">1:30</button><button class="pill" data-rest="120" id="rest120" style="background:var(--acc);color:#000">2:00</button></div></div><p class="small" style="margin:6px 0 0"><b style="color:var(--acc)">Bonus si tu as 1 h 30 :</b> <span class="mute">${SES[ses].bonus}</span></p><div>${SES[ses].ex.map((e,i)=>{const on=d.ex&&d.ex[ses+i];return `<div class="ex"><button class="chk ${on?'on':''}" data-ex="${ses+i}" aria-label="Fait : ${e[0]}">${on?CHECK:''}</button><div><b>${e[0]}</b><div class="tip">${e[2]}</div></div><div class="rx">${e[1][ph]}</div></div>`}).join('')}</div>
+  <button class="cta ${d.sport===ses?'done':''}" data-done="${ses}" style="width:100%;margin-top:12px">${d.sport===ses?'Séance validée ✓ · annuler':'Valider la séance'}</button>`:''}
+ </div></div>`}
 function vIntr(){const d=S.days[TODAY]||{},n=(d.op&&d.op[INTR])||1,tot=Object.values(d.op||{}).reduce((a,b)=>a+b,0);
  return `<div class="intr"><div class="intrIn"><span class="lab" style="color:var(--acc2);font-weight:700;text-transform:uppercase;font-size:13px">${n}e ouverture aujourd'hui · ${tot} en tout</span>
  <h1 style="font-size:clamp(44px,13vw,64px);margin:8px 0 6px">${RS[INTR]},<br>vraiment ?</h1>
@@ -475,7 +481,7 @@ function vIntr(){const d=S.days[TODAY]||{},n=(d.op&&d.op[INTR])||1,tot=Object.va
  <button class="cta ghost" data-ipro="1" style="width:100%;margin-top:14px">Usage pro (boutique), 5 min</button>
  <button class="pill" data-iclose="1" style="width:100%;margin-top:8px;background:none;color:var(--mute)">J'y vais quand même</button></div></div>`}
 function render(){
- app.innerHTML=`<div class="view">${({today:vToday,cal:vCal,sport:vSport,food:vFood,me:vMe})[view]()}</div>${INTR?vIntr():''}`;
+ app.innerHTML=`<div class="view">${({today:vToday,cal:vCal,sport:vSport,food:vFood,me:vMe})[view]()}</div>${WORK?vWork():''}${INTR?vIntr():''}`;
  document.getElementById('nav').innerHTML=Object.keys(NAVL).map(k=>`<button class="${view===k?'on':''}" data-go="${k}">${ICO[k]}${NAVL[k]}</button>`).join('');
  wro.disconnect();document.querySelectorAll('.fig').forEach(f=>wro.observe(f))
 }
@@ -488,6 +494,8 @@ document.addEventListener('click',e=>{
  if(ds.nav){const n=add(sel,+ds.nav);if(n<=TODAY){sel=n;openSes=null;render()}return}
  if(ds.alc){const x=d();x.alc=x.alc===ds.alc?undefined:ds.alc;save();render();if(x.alc==='none')toast(`+10 XP · série ${streak()}`);return}
  if(ds.ses){openSes=ds.ses;render();return}
+ if(ds.work){const dd=S.days[sel]||{},p=planned(sel);if(!SES[openSes])openSes=SES[dd.sport]?dd.sport:(p||'A');WORK=true;render();scrollTo(0,0);return}
+ if(ds.wclose){WORK=false;render();return}
  if(ds.ex){const x=d();x.ex=x.ex||{};x.ex[ds.ex]=!x.ex[ds.ex];const s=ds.ex[0];const all=SES[s].ex.every((_,i)=>x.ex[s+i]);if(all&&x.sport!==s){x.sport=s;toast('Séance bouclée · +20 XP')}save();render();return}
  if(ds.done){const x=d();if(x.sport===ds.done){x.sport=undefined}else{x.sport=ds.done;toast('+20 XP · bien joué')}save();render();return}
  if(ds.rest){clearInterval(window._rt);const id=b.id,lab=b.textContent;let t=+ds.rest;const tick=()=>{const el=document.getElementById(id);if(!el){clearInterval(window._rt);return}if(t<=0){el.textContent=lab;clearInterval(window._rt);toast('Repos terminé, série suivante');return}el.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;t--};tick();window._rt=setInterval(tick,1000);return}
