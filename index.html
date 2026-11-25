@@ -87,6 +87,7 @@ button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid
 .weight{display:flex;gap:10px;align-items:center;margin-top:8px}
 .weight input{flex:1;background:var(--card2);border:0;border-radius:14px;padding:12px 14px;color:var(--ink);font:800 26px "Barlow Condensed";font-style:italic;width:100%}
 .glasses{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px;margin-top:10px}.glasses i{height:26px;border-radius:5px 5px 8px 8px;background:var(--card2);border:1px solid var(--line)}.glasses i.on{background:var(--ass);border-color:var(--ass)}
+.intr{position:fixed;inset:0;z-index:30;background:radial-gradient(120% 80% at 80% 0%,#3a1606,#0a0a0b 60%);display:grid;place-items:center;padding:calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));overflow:auto}.intrIn{width:100%;max-width:460px}
 .idea{background:linear-gradient(135deg,#0f2533,#13161b);border-radius:18px;padding:14px;margin-top:12px}
 /* calendrier */
 .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
@@ -154,7 +155,7 @@ nav button.on svg{color:var(--acc)}
 {
 /* ============ DONNÉES ============ */
 const K='pisteNoire.v1';
-const DEF={days:{},settings:{start:'2026-11-23',challengeEnd:'2026-12-24',skiDec:'',skiFeb:'2027-02-08',sportDays:[1,3,5],alcTarget:5,water:2000}};
+const DEF={days:{},settings:{start:'2026-11-23',challengeEnd:'2026-12-24',skiDec:'',skiFeb:'2027-02-08',sportDays:[1,3,5],alcTarget:5,water:2000,scrGoal:30}};
 let S;try{S=JSON.parse(localStorage.getItem(K))||null}catch(e){S=null}
 if(!S)S=JSON.parse(JSON.stringify(DEF));
 S.settings=Object.assign({},DEF.settings,S.settings||{});S.days=S.days||{};
@@ -172,7 +173,10 @@ const MOIS=['janvier','février','mars','avril','mai','juin','juillet','août','
 const fmt=s=>{const d=P(s);return `${JOURS[d.getDay()]} ${d.getDate()} ${MOIS[d.getMonth()]}`};
 
 /* Synchro Apple Santé via Raccourci iOS : ?d=AAAA-MM-JJ&pas=..&kcal=..&fc=..&vo2=..&min=..&poids=.. */
-let HSYNC=false;
+let HSYNC=false,INTR=null;
+const RS={ig:'Instagram',fb:'Facebook',yt:'YouTube'};
+const ALT=[['podcast','Podcast'],['musique','Musique'],['livre','Livre'],['film','Film choisi']];
+try{const q=new URLSearchParams(location.search),o=q.get('open');if(o&&RS[o]){const k=iso(new Date()),x=S.days[k]||(S.days[k]={});x.op=x.op||{};x.op[o]=(x.op[o]||0)+1;save();INTR=o;history.replaceState(null,'',location.pathname+'#today')}}catch(e){}
 try{const q=new URLSearchParams(location.search);if(q.has('pas')||q.has('fc')||q.has('kcal')||q.has('poids')){
  const num=k=>{const v=parseFloat(String(q.get(k)||'').replace(',','.'));return isFinite(v)&&v>0?v:null};
  let d=q.get('d')||'';if(!/^\d{4}-\d{2}-\d{2}$/.test(d))d=iso(new Date());
@@ -267,7 +271,7 @@ const RULES=[
 const day=k=>S.days[k]||(S.days[k]={});
 const planned=k=>{const wd=P(k).getDay();const sd=[...S.settings.sportDays].sort((a,b)=>((a+6)%7)-((b+6)%7));const i=sd.indexOf(wd);return i<0?null:'ABC'[i%3]};
 const wGoal=(d,k)=>S.settings.water+(d&&d.sport?500:0);
-const xpOf=d=>{if(!d)return 0;let x=0;if(d.alc==='none')x+=10;else if(d.alc==='light')x+=3;if(d.sport)x+=20;if(d.snack)x+=5;if(d.plate)x+=5;if(d.w)x+=2;if((d.wa||0)>=wGoal(d))x+=5;return x};
+const xpOf=d=>{if(!d)return 0;let x=0;if(d.alc==='none')x+=10;else if(d.alc==='light')x+=3;if(d.sport)x+=20;if(d.snack)x+=5;if(d.plate)x+=5;if(d.w)x+=2;if((d.wa||0)>=wGoal(d))x+=5;if(d.scr!=null&&d.scr<=S.settings.scrGoal)x+=5;if(d.alt&&d.alt.length)x+=3;return x};
 const ringVals=d=>[d&&d.alc?(d.alc==='none'?1:d.alc==='light'?.5:.08):0,d&&d.sport?1:(d&&d.ex?Math.min(.9,Object.values(d.ex).filter(Boolean).length/6):0),((d&&d.snack?1:0)+(d&&d.plate?1:0)+Math.min(1,(d&&d.wa||0)/wGoal(d)))/3];
 function streak(){let k=TODAY;if(!(S.days[k]&&S.days[k].alc==='none'))k=add(k,-1);let n=0;while(S.days[k]&&S.days[k].alc==='none'){n++;k=add(k,-1)}return n}
 function bestStreak(){const ks=Object.keys(S.days).filter(k=>S.days[k].alc==='none').sort();let best=0,cur=0,prev=null;for(const k of ks){cur=prev&&diff(prev,k)===1?cur+1:1;best=Math.max(best,cur);prev=k}return best}
@@ -278,10 +282,11 @@ const level=x=>{let i=0;LV.forEach((l,j)=>{if(x>=l.min)i=j});return i};
 function weekCount(k){const d=P(k);const mon=add(k,-((d.getDay()+6)%7));let n=0,s=0;for(let i=0;i<7;i++){const x=S.days[add(mon,i)];if(x&&x.alc==='none')n++;if(x&&x.sport)s++}return{n,s,mon}}
 function badges(){const st=S.settings;let ch=true;for(let k=st.start;k<add(st.challengeEnd,0);k=add(k,1)){if(!(S.days[k]&&S.days[k].alc==='none')){ch=false;break}}
  const ses=count(d=>d.sport),best=bestStreak();
+ let scr7=0,rs=0;Object.keys(S.days).sort().forEach(k=>{const x=S.days[k];rs=x.scr!=null&&x.scr<=S.settings.scrGoal?rs+1:0;scr7=Math.max(scr7,rs)});
  let wat7=0,rw=0;Object.keys(S.days).sort().forEach(k=>{rw=(S.days[k].wa||0)>=wGoal(S.days[k])?rw+1:0;wat7=Math.max(wat7,rw)});
  let snack7=0,run=0;Object.keys(S.days).sort().forEach(k=>{run=S.days[k].snack?run+1:0;snack7=Math.max(snack7,run)});
  const ski=count(d=>d.sport==='ski');
- return[[best>=7,'7','jours sobres d\'affilée'],[best>=14,'14','jours sobres'],[ch,'24/12','Défi Noël réussi'],[ses>=1,'1re','séance'],[ses>=10,'10','séances'],[ses>=27,'27','séances : prêt pour la noire'],[snack7>=7,'7','jours sans grignoter'],[best>=30,'30','jours sobres'],[wat7>=7,'7','jours bien hydraté'],[ski>=1,'Ski','premier jour de glisse']]}
+ return[[best>=7,'7','jours sobres d\'affilée'],[best>=14,'14','jours sobres'],[ch,'24/12','Défi Noël réussi'],[ses>=1,'1re','séance'],[ses>=10,'10','séances'],[ses>=27,'27','séances : prêt pour la noire'],[snack7>=7,'7','jours sans grignoter'],[best>=30,'30','jours sobres'],[scr7>=7,'7','jours sous l\'objectif écran'],[wat7>=7,'7','jours bien hydraté'],[ski>=1,'Ski','premier jour de glisse']]}
 
 /* ============ RENDU ============ */
 const app=document.getElementById('app');
@@ -347,6 +352,14 @@ function vToday(){
   <div class="idea"><span class="small mute">Idée de dîner en famille</span><h3 style="margin-top:2px">${idea.n}</h3><p class="small mute">${idea.t} · ${idea.p}</p><button class="pill" data-go="food" style="margin-top:8px">Voir la recette</button></div>
  </div>
 
+
+ <div class="card"><div class="row between"><h2>Écrans</h2><span class="xp">+8</span></div>
+  ${(()=>{const op=d.op||{},tot=Object.values(op).reduce((a,b)=>a+b,0);return `<div class="legend" style="margin-top:10px">${Object.keys(RS).map(k=>`<div style="background:var(--card2)"><span>${RS[k]}</span><b>${op[k]||0}</b></div>`).join('')}</div><p class="small mute" style="margin-top:6px">${tot?`${tot} ouverture${tot>1?'s':''} aujourd'hui.`:'Aucune ouverture comptée aujourd\'hui.'} ${S.settings.scrGoal} min de réseaux par jour maximum.</p>`})()}
+  <label class="small mute" for="scr" style="display:block;margin-top:10px">Temps sur les réseaux (Réglages → Temps d'écran), le soir</label>
+  <div class="weight"><input id="scr" type="number" inputmode="numeric" min="0" max="900" placeholder="—" value="${d.scr!=null?d.scr:''}"><span class="num" style="font-size:22px">min</span></div>
+  <p class="small" style="margin-top:12px"><b>À la place, aujourd'hui :</b></p>
+  <div class="chips" style="margin-top:6px">${ALT.map(a=>`<button class="pill ${(d.alt||[]).includes(a[0])?'on':''}" data-alt="${a[0]}">${a[1]}</button>`).join('')}</div>
+ </div>
  <div class="card"><div class="row between"><h2>Poids</h2><span class="mute small">1 pesée / semaine, le matin à jeun</span></div>
   <div class="weight"><input id="w" type="number" inputmode="decimal" step="0.1" placeholder="—" value="${d.w||''}" aria-label="Poids en kg"><span class="num" style="font-size:22px">kg</span></div>
  </div>`}
@@ -415,12 +428,24 @@ function vMe(){
   <li>Onglet <b>Automatisation</b> → <i>Heure de la journée</i> 21 h 30, chaque jour → ce raccourci, <i>Exécuter immédiatement</i>.</li></ol>
   <p class="mute">Tu peux aussi ajouter <code>&amp;poids=[Poids]</code> si tu as une balance connectée.</p></div></details>
  </div>
+
+ <div class="card"><h2>Écrans</h2>${(()=>{let m=0,mn=0,op=0,al=0;for(let k=add(TODAY,-6);k<=TODAY;k=add(k,1)){const x=S.days[k];if(!x)continue;if(x.scr!=null){m+=x.scr;mn++}op+=Object.values(x.op||{}).reduce((a,b)=>a+b,0);if(x.alt&&x.alt.length)al++}
+  return `<div class="stats" style="margin:12px 0 0"><div class="stat" style="background:var(--card2)"><span>Réseaux · moyenne 7 j</span><div class="num">${mn?Math.round(m/mn):'—'}<small style="font-size:18px"> min</small></div><span>Objectif ${S.settings.scrGoal} min</span></div><div class="stat" style="background:var(--card2)"><span>Ouvertures · 7 j</span><div class="num">${op}</div><span>Instagram, Facebook, YouTube</span></div></div><p class="small mute" style="margin-top:8px">${al} jour${al>1?'s':''} sur 7 avec podcast, musique, livre ou film à la place.</p>`})()}
+  <details style="background:var(--card2);margin:12px 0 0"><summary><b>Compter mes ouvertures (3 min, une seule fois)</b></summary><div class="det small">
+  <p>L'appli ne peut pas lire Temps d'écran. À la place, un raccourci l'ouvre chaque fois que tu lances un réseau : il compte l'ouverture et te demande si c'est vraiment le moment.</p>
+  <ol><li>App <b>Raccourcis</b> → onglet <b>Automatisation</b> → <b>+</b> → <b>App</b>.</li>
+  <li>Choisis <b>Instagram</b>, coche <b>Est ouverte</b>, et <b>Exécuter immédiatement</b>.</li>
+  <li>Action <b>Ouvrir les URL</b> : <code>https://tomplzl.github.io/piste-noire/?open=ig</code></li>
+  <li>Recommence pour Facebook (<code>?open=fb</code>) et YouTube (<code>?open=yt</code>).</li></ol>
+  <p>En plus, pour le temps : <b>Réglages → Temps d'écran → Limites d'app</b>, une limite de ${S.settings.scrGoal} min par jour sur les réseaux sociaux. Demande à ta femme de choisir le code : c'est ce qui la rend vraiment efficace.</p></div></details>
+ </div>
  <div class="card"><h2>Badges</h2><div class="badges" style="margin-top:12px">${badges().map(b=>`<div class="badge ${b[0]?'got':''}"><span class="num">${b[1]}</span>${b[2]}</div>`).join('')}</div></div>
  <div class="card set"><h2>Réglages</h2>
   <label>Jours de séance (A, B, C dans l'ordre)</label><div class="days7">${[1,2,3,4,5,6,0].map(i=>`<button class="${st.sportDays.includes(i)?'on':''}" data-sd="${i}">${['D','L','M','M','J','V','S'][i]}</button>`).join('')}</div>
   <label for="skiDec">Ski de décembre (date de départ)</label><input type="date" id="skiDec" value="${st.skiDec}">
   <label for="skiFeb">Ski de février (date de départ)</label><input type="date" id="skiFeb" value="${st.skiFeb}">
   <label for="wat">Objectif d'eau par jour (ml, +500 les jours de sport)</label><input type="number" id="wat" min="1000" max="4000" step="250" value="${st.water}">
+  <label for="scrG">Objectif réseaux sociaux par jour (min)</label><input type="number" id="scrG" min="0" max="240" step="5" value="${st.scrGoal}">
   <label for="alcT">Objectif jours sans alcool par semaine (après Noël)</label><input type="number" id="alcT" min="0" max="7" value="${st.alcTarget}">
  </div>
  <div class="card"><h2>Sauvegarde</h2><p class="small mute">Tes données restent sur ce téléphone. Exporte de temps en temps pour ne rien perdre.</p>
@@ -440,8 +465,17 @@ function drawLine(id,key,unit,dec){const s=document.getElementById(id);if(!s)ret
 function drawW(){drawLine('wsvg',x=>x.w||null,'',1);drawLine('fsvg',x=>x.h&&x.h.fc||null,'',0)}
 const wro=new ResizeObserver(drawW);
 
+
+function vIntr(){const d=S.days[TODAY]||{},n=(d.op&&d.op[INTR])||1,tot=Object.values(d.op||{}).reduce((a,b)=>a+b,0);
+ return `<div class="intr"><div class="intrIn"><span class="lab" style="color:var(--acc2);font-weight:700;text-transform:uppercase;font-size:13px">${n}e ouverture aujourd'hui · ${tot} en tout</span>
+ <h1 style="font-size:clamp(44px,13vw,64px);margin:8px 0 6px">${RS[INTR]},<br>vraiment ?</h1>
+ <p class="mute">${streak()} jours sans alcool d'affilée. Ne remplace pas une habitude par une autre.</p>
+ <p style="margin:18px 0 8px;font-weight:700">Plutôt :</p>
+ <div class="seg" style="grid-template-columns:repeat(2,minmax(0,1fr))">${ALT.map(a=>`<button data-ialt="${a[0]}">${a[1]}</button>`).join('')}</div>
+ <button class="cta ghost" data-ipro="1" style="width:100%;margin-top:14px">Usage pro (boutique), 5 min</button>
+ <button class="pill" data-iclose="1" style="width:100%;margin-top:8px;background:none;color:var(--mute)">J'y vais quand même</button></div></div>`}
 function render(){
- app.innerHTML=`<div class="view">${({today:vToday,cal:vCal,sport:vSport,food:vFood,me:vMe})[view]()}</div>`;
+ app.innerHTML=`<div class="view">${({today:vToday,cal:vCal,sport:vSport,food:vFood,me:vMe})[view]()}</div>${INTR?vIntr():''}`;
  document.getElementById('nav').innerHTML=Object.keys(NAVL).map(k=>`<button class="${view===k?'on':''}" data-go="${k}">${ICO[k]}${NAVL[k]}</button>`).join('');
  wro.disconnect();document.querySelectorAll('.fig').forEach(f=>wro.observe(f))
 }
@@ -457,6 +491,10 @@ document.addEventListener('click',e=>{
  if(ds.ex){const x=d();x.ex=x.ex||{};x.ex[ds.ex]=!x.ex[ds.ex];const s=ds.ex[0];const all=SES[s].ex.every((_,i)=>x.ex[s+i]);if(all&&x.sport!==s){x.sport=s;toast('Séance bouclée · +20 XP')}save();render();return}
  if(ds.done){const x=d();if(x.sport===ds.done){x.sport=undefined}else{x.sport=ds.done;toast('+20 XP · bien joué')}save();render();return}
  if(ds.rest){clearInterval(window._rt);const id=b.id,lab=b.textContent;let t=+ds.rest;const tick=()=>{const el=document.getElementById(id);if(!el){clearInterval(window._rt);return}if(t<=0){el.textContent=lab;clearInterval(window._rt);toast('Repos terminé, série suivante');return}el.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;t--};tick();window._rt=setInterval(tick,1000);return}
+ if(ds.alt){const x=d();x.alt=x.alt||[];const had=x.alt.length;x.alt=x.alt.includes(ds.alt)?x.alt.filter(z=>z!==ds.alt):[...x.alt,ds.alt];save();render();if(!had&&x.alt.length)toast('+3 XP · bon choix');return}
+ if(ds.ialt){const x=day(TODAY);x.alt=x.alt||[];if(!x.alt.includes(ds.ialt))x.alt.push(ds.ialt);INTR=null;save();sel=TODAY;render();toast('Bon choix · +3 XP');return}
+ if(ds.ipro){const x=day(TODAY);x.pro=(x.pro||0)+1;INTR=null;save();render();toast('Ok, 5 min chrono');return}
+ if(ds.iclose){INTR=null;render();return}
  if(ds.wa){const x=d(),was=(x.wa||0)>=wGoal(x);x.wa=Math.max(0,(x.wa||0)+(+ds.wa));save();render();if(!was&&x.wa>=wGoal(x))toast('Objectif eau atteint · +5 XP');return}
  if(ds.t){const x=d();x[ds.t]=!x[ds.t];save();render();if(x[ds.t])toast('+5 XP');return}
  if(ds.day){sel=ds.day;openSes=null;go('today');return}
@@ -470,6 +508,8 @@ document.addEventListener('change',e=>{
  if(t.id==='w'){const v=parseFloat(String(t.value).replace(',','.'));const x=day(sel);if(v>30&&v<250)x.w=Math.round(v*10)/10;else delete x.w;save();toast(x.w?'Pesée enregistrée':'Pesée effacée');return}
  if(t.id==='skiDec'||t.id==='skiFeb'){S.settings[t.id]=t.value;save();return}
  if(t.id==='wat'){S.settings.water=Math.max(1000,Math.min(4000,parseInt(t.value)||2000));save();return}
+ if(t.id==='scr'){const v=parseInt(t.value);const x=day(sel);if(v>=0&&v<=900)x.scr=v;else delete x.scr;save();render();if(x.scr!=null)toast(x.scr<=S.settings.scrGoal?'Sous l\'objectif · +5 XP':'Au-dessus de l\'objectif, demain on fait mieux');return}
+ if(t.id==='scrG'){S.settings.scrGoal=Math.max(0,Math.min(240,parseInt(t.value)||30));save();return}
  if(t.id==='alcT'){S.settings.alcTarget=Math.max(0,Math.min(7,parseInt(t.value)||5));save();return}
  if(t.id==='imp'&&t.files[0]){const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(o&&o.days&&typeof o.days==='object'){S.days=o.days;S.settings=Object.assign({},DEF.settings,o.settings||{});save();render();toast('Données importées')}else toast('Fichier invalide')}catch(err){toast('Fichier invalide')}};r.readAsText(t.files[0])}
 });
