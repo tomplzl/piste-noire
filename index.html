@@ -248,9 +248,9 @@ const REC=[
 ];
 /* La vitrine des Garçons, notée comme une piste */
 const SHOP=[
- ['Banh-mi poulet rôti','g','Le meilleur choix sandwich : poulet maigre et crudités. Vas-y doucement sur la mayo.'],
+ ['Banh-mi poulet rôti','b','Bon déjeuner : poulet et crudités. Le pain, la mayo et l\'huile pimentée en font un vrai repas : une seule couche de mayo, l\'huile pimentée au pinceau, pas à la cuillère.'],
  ['Bon Jean (jambon)','b','Bon déjeuner sur le pouce. Une demi-baguette suffit si tu as une collation l\'après-midi.'],
- ['Cobb Salad','b','Top en protéines. Sauce à part, moitié du bacon.'],
+ ['Cobb Salad','b','Top en protéines. Elle passe en verte si tu prends la sauce à part et la moitié du bacon.'],
  ['Bœuf bourguignon','b','Viande maigre et longue cuisson : oui. Avec des légumes vapeur à la place des pâtes, et sans saucer au pain.'],
  ['Kefta d\'agneau, sauce couscous','b','Double sauce légumes, moitié de semoule (elle est au beurre).'],
  ['Tomates farcies','b','La tomate compense la farce de porc. Une seule tomate + salade.'],
@@ -407,7 +407,7 @@ function vFood(){
  return `<div class="top"><div><div class="sub">2 vrais repas + 1 collation prévue</div><h1>Assiette</h1></div></div>
  <div class="card"><div class="row between"><h2>Idées du jour</h2><button class="pill" data-ish="1">Autres idées</button></div>${ideas(sel).map(i=>`<div class="ex" style="grid-template-columns:minmax(0,1fr)"><div><span class="small mute">${i[0]}</span><b style="display:block">${i[1]}</b></div></div>`).join('')}<p class="small mute">Tu as déjà ce qu'il faut ? Prends l'idée qui colle, sinon garde juste la règle : ½ légumes, ¼ protéine, ¼ féculents.</p></div>
  <div class="card"><h2>Les règles</h2>${RULES.map(r=>`<div class="ex" style="grid-template-columns:minmax(0,1fr)"><div><b>${r[0]}</b><div class="tip">${r[1]}</div></div></div>`).join('')}</div>
- <div class="card"><h2>Ta vitrine</h2><p class="small mute">Ce que tu manges souvent dans la journée, classé comme une piste.</p>
+ <div class="card"><h2>Ta vitrine</h2><p class="small mute">Ce que tu manges souvent dans la journée, classé comme une piste. Rien n\'est vert d\'office dans une vitrine de traiteur : un repas vert, c\'est surtout de la viande grillée et des légumes.</p>
   <div class="row small" style="gap:12px;margin:8px 0 4px">${Object.values(PISTE).map(p=>`<span><i class="dot" style="background:${p[1]}"></i>${p[0]} · <span class="mute">${p[2]}</span></span>`).join('')}</div>
   ${SHOP.map(s=>`<div class="ex" style="grid-template-columns:30px minmax(0,1fr)"><span class="diamond" style="width:30px;height:30px"><i style="width:18px;height:18px;border-radius:3px;background:${PISTE[s[1]][1]}"></i></span><div><b>${s[0]}</b><div class="tip">${s[2]}</div></div></div>`).join('')}</div>
  <h2 style="margin:20px 4px 10px">Dîners en famille</h2>
