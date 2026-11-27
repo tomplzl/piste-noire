@@ -180,6 +180,7 @@ if(!S)S=JSON.parse(JSON.stringify(DEF));
 S.settings=Object.assign({},DEF.settings,S.settings||{});S.days=S.days||{};
 /* Sobre depuis le lundi 23 nov. inclus : saisie unique */
 if(!S.seed1){if(S.settings.start==='2026-11-25')S.settings.start='2026-11-23';['2026-11-23','2026-11-24'].forEach(k=>{const x=S.days[k]||(S.days[k]={});if(!x.alc)x.alc='none'});S.seed1=true;try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+if(!S.seed2){['2026-11-23','2026-11-24','2026-11-25','2026-11-26','2026-11-27'].forEach(k=>{const x=S.days[k]||(S.days[k]={});if(!x.alc)x.alc='none'});S.seed2=true;try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 
 const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
