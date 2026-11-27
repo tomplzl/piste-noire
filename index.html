@@ -95,6 +95,17 @@ button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid
 .pst i{width:9px;height:9px;transform:rotate(45deg);background:var(--pc);border-radius:2px;flex:none}
 .pst.on{border-color:var(--pc);background:color-mix(in srgb,var(--pc) 22%,var(--card2))}
 @media(max-width:380px){.mrow{grid-template-columns:1fr}.pst{font-size:12px}}
+.gates{display:flex;gap:6px;overflow-x:auto;padding:14px 2px 4px;scrollbar-width:none}.gates::-webkit-scrollbar{display:none}
+.gate{flex:none;width:40px;text-align:center;font-size:11px;font-weight:700;color:var(--mute)}
+.gate i{display:block;width:30px;height:34px;margin:0 auto 4px;border-left:3px solid #666;border-right:3px solid #666;position:relative;opacity:.35}
+.gate i::after{content:"";position:absolute;left:0;right:0;top:2px;height:18px;background:var(--fc)}
+.gate.ok i{opacity:1;border-color:#fff}.gate.ok span{color:var(--ink)}
+.gate.ko i{opacity:.5}.gate.ko i::after{background:#444}.gate.ko i::before{content:"✕";position:absolute;left:0;right:0;top:0;height:22px;display:grid;place-items:center;color:#fff;font-weight:800;z-index:1;font-size:13px}
+.gate.live i{opacity:1;border-color:var(--acc);animation:pulse 1.4s infinite}.gate.live span{color:var(--acc)}
+.gate.finish i{opacity:1;border-color:#fff}.gate.finish i::after{background:repeating-linear-gradient(45deg,#fff 0 5px,#111 5px 10px)}.gate.finish span{color:var(--ink)}
+@keyframes pulse{50%{transform:scale(1.08)}}
+@media(prefers-reduced-motion:reduce){.gate.live i{animation:none}}
+.heroTop .rings{width:min(40vw,170px);aspect-ratio:auto}
 .idea{background:linear-gradient(135deg,#0f2533,#13161b);border-radius:18px;padding:14px;margin-top:12px}
 /* calendrier */
 .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
@@ -293,23 +304,40 @@ const plateScore=d=>(lunOk(d)?1:0)+(dinOk(d)?1:0)+(snackOk(d)?1:0)+((d&&d.wa||0)
 function ideas(k){const n=diff('2026-01-01',k)+(S.ish||0),pick=(a,i)=>a[((n+i)%a.length+a.length)%a.length];
  const sh=SHOP.filter(s=>OKP.includes(s[1])),q=REC.filter(r=>r.tags.some(t=>t==='rapide'||t==='frigo vide')),f=REC.filter(r=>r.tags.includes('famille')&&!q.includes(r));
  return[['Midi, à la boutique',pick(sh,0)[0]],['Ce soir, rapide',pick(q,1).n],['Ce soir, en famille',pick(f,2).n]]}
-const xpOf=d=>{if(!d)return 0;let x=0;if(d.alc==='none')x+=10;else if(d.alc==='light')x+=3;if(d.sport)x+=20;if(snackOk(d))x+=5;if(dinOk(d))x+=5;if(lunOk(d))x+=5;if(d.w)x+=2;if((d.wa||0)>=wGoal(d))x+=5;if(d.scr!=null&&d.scr<=S.settings.scrGoal)x+=5;if(d.alt&&d.alt.length)x+=3;return x};
-const ringVals=d=>[d&&d.alc?(d.alc==='none'?1:d.alc==='light'?.5:.08):0,d&&d.sport?1:(d&&d.ex?Math.min(.9,Object.values(d.ex).filter(Boolean).length/6):0),((lunOk(d)?1:0)+(dinOk(d)?1:0)+(snackOk(d)?1:0)+Math.min(1,(d&&d.wa||0)/wGoal(d)))/4];
+/* ============ LE JEU : LA DESCENTE ============ */
+const DEFIS=['100 squats au poids du corps dans la journée (en séries de 20)','Chaise contre le mur : 3 min cumulées','Planche : 2 min cumulées','20 min de marche après le dîner','Escaliers uniquement aujourd\'hui, pas d\'ascenseur','30 fentes marchées + 30 montées sur pointes','Équilibre sur une jambe pendant que tu te brosses les dents (matin et soir)','10 min d\'étirements hanches et cuisses ce soir','50 sauts latéraux au-dessus d\'une ligne','Aucun écran dans la chambre ce soir : 7 h de sommeil'];
+const defiOf=k=>DEFIS[((diff('2026-01-01',k))%DEFIS.length+DEFIS.length)%DEFIS.length];
+const scrOk=d=>d&&d.scr!=null&&d.scr<=S.settings.scrGoal;
+const baseM=d=>{if(!d)return 0;let m=0;if(d.alc==='none')m+=100;else if(d.alc==='light')m+=30;if(d.sport)m+=d.sport==='ski'?500:250;if(d.bon)m+=100;if(scrOk(d))m+=50;if(d.alt&&d.alt.length)m+=30;return m};
+const multOf=stk=>1+0.25*Math.min(4,Math.floor(stk/7));
+const speedOf=stk=>Math.min(120,20+stk*4);
+function game(){const ks=Object.keys(S.days).filter(k=>k<=TODAY).sort();const by={};let tot=0,stk=0,prev=null;
+ for(const k of ks){const d=S.days[k];stk=d.alc==='none'?((prev&&diff(prev,k)===1&&S.days[prev].alc==='none')?stk+1:1):0;const mu=multOf(stk),m=Math.round(baseM(d)*mu);by[k]={m,mu,stk};tot+=m;prev=k}
+ return{by,tot}}
+const dayM=k=>{const g=game();return g.by[k]?g.by[k].m:0};
 function streak(){let k=TODAY;if(!(S.days[k]&&S.days[k].alc==='none'))k=add(k,-1);let n=0;while(S.days[k]&&S.days[k].alc==='none'){n++;k=add(k,-1)}return n}
 function bestStreak(){const ks=Object.keys(S.days).filter(k=>S.days[k].alc==='none').sort();let best=0,cur=0,prev=null;for(const k of ks){cur=prev&&diff(prev,k)===1?cur+1:1;best=Math.max(best,cur);prev=k}return best}
 const count=f=>Object.entries(S.days).filter(([k,d])=>k<=TODAY&&f(d,k)).length;
-const totalXP=()=>Object.values(S.days).reduce((a,d)=>a+xpOf(d),0);
-const LV=[{n:'Piste verte',c:'var(--g)',min:0},{n:'Piste bleue',c:'var(--b)',min:300},{n:'Piste rouge',c:'var(--r)',min:800},{n:'Piste noire',c:'#0a0a0b',min:1500},{n:'Hors-piste',c:'var(--acc)',min:2600}];
+const LV=[{n:'Piste verte',c:'var(--g)',min:0},{n:'Piste bleue',c:'var(--b)',min:2500},{n:'Piste rouge',c:'var(--r)',min:6000},{n:'Piste noire',c:'#0a0a0b',min:11000},{n:'Hors-piste',c:'var(--acc)',min:18000}];
 const level=x=>{let i=0;LV.forEach((l,j)=>{if(x>=l.min)i=j});return i};
+const fm=n=>Math.round(n).toLocaleString('fr-FR');
 function weekCount(k){const d=P(k);const mon=add(k,-((d.getDay()+6)%7));let n=0,s=0;for(let i=0;i<7;i++){const x=S.days[add(mon,i)];if(x&&x.alc==='none')n++;if(x&&x.sport)s++}return{n,s,mon}}
-function badges(){const st=S.settings;let ch=true;for(let k=st.start;k<add(st.challengeEnd,0);k=add(k,1)){if(!(S.days[k]&&S.days[k].alc==='none')){ch=false;break}}
- const ses=count(d=>d.sport),best=bestStreak();
- let scr7=0,rs=0;Object.keys(S.days).sort().forEach(k=>{const x=S.days[k];rs=x.scr!=null&&x.scr<=S.settings.scrGoal?rs+1:0;scr7=Math.max(scr7,rs)});
- let wat7=0,rw=0;Object.keys(S.days).sort().forEach(k=>{rw=(S.days[k].wa||0)>=wGoal(S.days[k])?rw+1:0;wat7=Math.max(wat7,rw)});
- let snack7=0,run=0;Object.keys(S.days).sort().forEach(k=>{run=snackOk(S.days[k])?run+1:0;snack7=Math.max(snack7,run)});
- const ski=count(d=>d.sport==='ski');
- return[[best>=7,'7','jours sobres d\'affilée'],[best>=14,'14','jours sobres'],[ch,'24/12','Défi Noël réussi'],[ses>=1,'1re','séance'],[ses>=10,'10','séances'],[ses>=27,'27','séances : prêt pour la noire'],[snack7>=7,'7','jours sans grignoter'],[best>=30,'30','jours sobres'],[scr7>=7,'7','jours sous l\'objectif écran'],[wat7>=7,'7','jours bien hydraté'],[ski>=1,'Ski','premier jour de glisse']]}
-
+/* Une porte de slalom par semaine jusqu'au ski de février */
+function gates(){const st=S.settings,s0=P(st.start),mon0=add(st.start,-((s0.getDay()+6)%7)),end=add(st.skiFeb,-1),out=[];
+ for(let m=mon0;m<=end;m=add(m,7)){const sun=add(m,6),w=weekCount(m),fete=m<='2027-01-03'&&sun>='2026-12-21';
+  const tN=sun<st.challengeEnd?7:st.alcTarget,tS=fete?2:Math.max(1,st.sportDays.length);
+  let n=w.n,ndays=7;if(m<st.start){ndays=diff(st.start,sun)+1;}
+  const needN=Math.min(tN,ndays);const ok=n>=needN&&w.s>=tS;
+  out.push({m,sun,n,s:w.s,tN:needN,tS,ok,state:sun<TODAY?(ok?'ok':'ko'):(m<=TODAY?'live':'next'),fete})}
+ return out}
+function badges(){const st=S.settings;let ch=true;for(let k=st.start;k<st.challengeEnd;k=add(k,1)){if(!(S.days[k]&&S.days[k].alc==='none')){ch=false;break}}
+ const ses=count(d=>d.sport),best=bestStreak(),g=gates(),ski=count(d=>d.sport==='ski'),bon=count(d=>d.bon);
+ let run=0,bestRun=0;g.forEach(x=>{if(x.state==='ok'){run++;bestRun=Math.max(bestRun,run)}else if(x.state==='ko')run=0});
+ const preX=g.filter(x=>x.sun<st.challengeEnd),slalomNoel=preX.length&&preX.every(x=>x.state==='ok');
+ let scr7=0,rs=0;Object.keys(S.days).sort().forEach(k=>{rs=scrOk(S.days[k])?rs+1:0;scr7=Math.max(scr7,rs)});
+ return[[g.some(x=>x.state==='ok'),'1re','porte passée'],[bestRun>=3,'3','portes d\'affilée'],[best>=7,'7','jours sobres d\'affilée'],[best>=14,'14','jours sobres'],[best>=20,'100','km/h : vitesse max'],[ch,'24/12','Défi Noël réussi'],[slalomNoel,'Or','slalom parfait jusqu\'à Noël'],[best>=30,'30','jours sobres'],[ses>=10,'10','séances'],[ses>=27,'27','séances : prêt pour la noire'],[bon>=10,'10','défis bonus'],[scr7>=7,'7','jours sous l\'objectif écran'],[ski>=1,'Ski','premier jour de glisse']]}
+let LASTG=null;
+function gain(m0,l0){const g=game().tot,d=(game().by[sel]||{m:0}).m-m0;if(d>0)toast(`+${fm(d)} m de dénivelé`);const l1=level(g);if(l1>l0)setTimeout(()=>toast(`Niveau : ${LV[l1].n} !`),1700)}
 /* ============ RENDU ============ */
 const app=document.getElementById('app');
 let view=['today','cal','sport','food','me'].includes(location.hash.slice(1))?location.hash.slice(1):'today';
@@ -324,67 +352,64 @@ const NAVL={today:'Aujourd\'hui',cal:'Calendrier',sport:'Sport',food:'Assiette',
 const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
 const MNT='<svg class="mnt" viewBox="0 0 400 120" preserveAspectRatio="none"><path d="M0 120L70 50l40 35 70-75 60 55 45-30 115 85z" fill="#1f1f24"/><path d="M180 10l22 22-12-2-10 10-10-10-12 4z" fill="#3a3a42"/><path d="M0 120l110-40 80 25 90-45 120 60z" fill="#17171b"/></svg>';
 
-function ringsSVG(v){const R=[70,54,38],C=['var(--sob)','var(--spo)','var(--ass)'];
- return `<svg class="rings" viewBox="0 0 170 170">${R.map((r,i)=>{const L=2*Math.PI*r;return `<circle cx="85" cy="85" r="${r}" fill="none" stroke="${C[i]}" stroke-opacity=".18" stroke-width="13"/><circle cx="85" cy="85" r="${r}" fill="none" stroke="${C[i]}" stroke-width="13" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L*(1-Math.max(.001,v[i]))}" transform="rotate(-90 85 85)" style="transition:stroke-dashoffset .8s"/>`}).join('')}</svg>`}
-
+function gaugeSVG(v,crash){const a=Math.PI*(1-Math.min(1,v/120)),L=Math.PI*70,x=85+60*Math.cos(a),y=88-60*Math.sin(a);
+ return `<svg class="rings" viewBox="0 0 170 110"><path d="M15 88A70 70 0 0 1 155 88" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="14" stroke-linecap="round"/><path d="M15 88A70 70 0 0 1 155 88" fill="none" stroke="${crash?'var(--r)':'var(--acc)'}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${L}" stroke-dashoffset="${L*(1-Math.min(1,v/120))}" style="transition:stroke-dashoffset .9s"/><line x1="85" y1="88" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="85" cy="88" r="7" fill="#fff"/><text x="85" y="108" text-anchor="middle" fill="#9a9aa3" font-size="11" font-family="Barlow" font-weight="700">KM/H</text></svg>`}
+function gatesRow(g){return `<div class="gates">${g.map((x,i)=>`<div class="gate ${x.state}" title="Semaine du ${fmt(x.m)}"><i style="--fc:${i%2?'var(--b)':'var(--r)'}"></i><span>${P(x.m).getDate()}/${P(x.m).getMonth()+1}</span></div>`).join('')}<div class="gate finish"><i></i><span>Départ</span></div></div>`}
+function profileSVG(p){const pts=[[0,8],[18,22],[30,18],[46,44],[60,40],[76,70],[90,66],[100,92]],X=v=>v*3.4+8,Y=v=>v*1.0+10;
+ let tx=0,ty=0;for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];if(p*100<=b[0]||i===pts.length-1){const t=Math.max(0,Math.min(1,(p*100-a[0])/(b[0]-a[0])));tx=a[0]+(b[0]-a[0])*t;ty=a[1]+(b[1]-a[1])*t;break}}
+ const d=pts.map((q,i)=>`${i?'L':'M'}${X(q[0])} ${Y(q[1])}`).join('');
+ return `<svg viewBox="0 0 356 112" style="width:100%;height:auto;display:block"><path d="${d}L${X(100)} 112L${X(0)} 112Z" fill="#1d1d21"/><path d="${d}" fill="none" stroke="rgba(255,255,255,.25)" stroke-width="3" stroke-dasharray="6 6"/><path d="${pts.filter(q=>q[0]<=tx).map((q,i)=>`${i?'L':'M'}${X(q[0])} ${Y(q[1])}`).join('')}L${X(tx)} ${Y(ty)}" fill="none" stroke="var(--acc)" stroke-width="4" stroke-linecap="round"/><circle cx="${X(tx)}" cy="${Y(ty)-9}" r="8" fill="var(--acc)" stroke="#0a0a0b" stroke-width="3"/><rect x="${X(100)-12}" y="${Y(92)-28}" width="4" height="28" fill="#fff"/><path d="M${X(100)-8} ${Y(92)-28}h16l-4 6 4 6h-16z" fill="var(--acc)"/></svg>`}
 function vToday(){
- const st=S.settings,d=S.days[sel]||{},ph=phaseOf(sel),pl=planned(sel),rv=ringVals(d),stk=streak();
- const chTot=diff(st.start,st.challengeEnd),chDone=Math.max(0,Math.min(chTot,diff(st.start,TODAY)));
- const toFeb=diff(TODAY,st.skiFeb),toDec=st.skiDec?diff(TODAY,st.skiDec):null,toCh=diff(TODAY,st.challengeEnd);
- const ses=openSes||d.sport||pl;
- const idea=REC[(diff('2026-01-01',sel)%REC.length+REC.length)%REC.length];
- const wk=weekCount(sel);
+ const st=S.settings,d=S.days[sel]||{},ph=phaseOf(sel),pl=planned(sel),stk=streak(),G=game(),tot=G.tot,li=level(tot),nx=LV[li+1];
+ const crash=(S.days[TODAY]||{}).alc==='drink',spd=crash?0:speedOf(stk),mu=multOf(stk),toMu=mu<2?7-(stk%7):0;
+ const toFeb=diff(TODAY,st.skiFeb),toDec=st.skiDec?diff(TODAY,st.skiDec):null;
+ const ses=openSes||d.sport||pl,g=gates(),cur=g.find(x=>x.state==='live'),dm=(G.by[sel]||{m:0}).m;
+ const pct=nx?(tot-LV[li].min)/(nx.min-LV[li].min):1;
  return `
- <div class="top"><div><div class="sub">${PH[ph].n} · ${LV[level(totalXP())].n}</div><h1>Allez Thomas</h1></div><span class="xp" style="font-size:22px">+${xpOf(d)} XP</span></div>
+ <div class="top"><div><div class="sub">${LV[li].n} · ${fm(tot)} m</div><h1>Allez Thomas</h1></div><span class="xp" style="font-size:22px">+${fm(dm)} m</span></div>
  <section class="hero">${MNT}
-  <div class="heroTop"><div class="streak"><div class="lab">Jours sans alcool d'affilée</div><div class="num">${stk}</div></div>${ringsSVG(rv)}</div>
-  <div class="legend"><div><span><i class="dot" style="background:var(--sob)"></i>Sobriété</span><b>${d.alc==='none'?'OK':d.alc?'—':'?'}</b></div><div><span><i class="dot" style="background:var(--spo)"></i>Sport</span><b>${d.sport?'Fait':pl?'Séance '+pl:'Repos'}</b></div><div><span><i class="dot" style="background:var(--ass)"></i>Assiette</span><b>${plateScore(d)}/4</b></div></div>
+  <div class="heroTop"><div class="streak"><div class="lab">Jours sans alcool d'affilée</div><div class="num">${stk}</div></div><div style="text-align:center">${gaugeSVG(spd,crash)}<div class="num" style="font-size:40px;font-style:italic;margin-top:-6px">${crash?'Chute':spd}</div></div></div>
+  <div class="legend"><div><span>Bonus série</span><b>×${String(mu).replace('.',',')}</b></div><div><span>${mu<2?'Prochain bonus':'Bonus'}</span><b>${mu<2?'J-'+toMu:'Max'}</b></div><div><span>${toDec!=null&&toDec>=0?'Ski déc.':'Départ'}</span><b>J-${toDec!=null&&toDec>=0?toDec:Math.max(0,toFeb)}</b></div></div>
  </section>
- <div class="countdowns">
-  ${toCh>=0?`<div class="cd"><span>Défi sobre · Noël</span><div class="num">J-${toCh}</div><div class="bar"><i style="width:${chTot?chDone/chTot*100:0}%"></i></div></div>`:`<div class="cd"><span>Cette semaine</span><div class="num">${wk.n}<small>/${st.alcTarget}</small></div><span>jours sans alcool</span></div>`}
-  <div class="cd"><span>${toDec!=null&&toDec>=0?'Ski de décembre':'Ski de février'}</span><div class="num">J-${toDec!=null&&toDec>=0?toDec:Math.max(0,toFeb)}</div><span>${wk.s} séance${wk.s>1?'s':''} cette semaine</span></div>
+
+ <div class="card"><div class="row between"><h2>Ta descente</h2><span class="small mute">${nx?`${fm(nx.min-tot)} m avant la ${nx.n.toLowerCase()}`:'Niveau max'}</span></div>
+  <div style="margin-top:10px">${profileSVG(Math.min(1,tot/18000))}</div>
+  <div class="row between small mute" style="margin-top:6px"><span>${LV.slice(1).map(l=>`<i class="dot" style="background:${l.c};${l.c==='#0a0a0b'?'outline:1px solid #fff;':''}"></i>${fm(l.min)}`).join(' &nbsp; ')}</span></div>
  </div>
+
+ ${cur?`<div class="card"><div class="row between"><h2>Porte de la semaine</h2><span class="small mute">${cur.fete?'Semaine des fêtes':'jusqu\'à dim.'}</span></div>
+  <div class="mrow" style="grid-template-columns:110px minmax(0,1fr) auto"><b>Jours sobres</b><div class="bar" style="margin:0"><i style="width:${Math.min(100,cur.n/cur.tN*100)}%;background:var(--g)"></i></div><span class="num" style="font-size:22px;font-style:italic">${cur.n}/${cur.tN}</span></div>
+  <div class="mrow" style="grid-template-columns:110px minmax(0,1fr) auto"><b>Séances</b><div class="bar" style="margin:0"><i style="width:${Math.min(100,cur.s/cur.tS*100)}%"></i></div><span class="num" style="font-size:22px;font-style:italic">${cur.s}/${cur.tS}</span></div>
+  ${gatesRow(g)}
+ </div>`:''}
+
  ${d.h?`<div class="card" style="padding:14px 16px"><div class="row between"><span class="small mute">Apple Watch</span><span class="small mute">${sel===TODAY?'aujourd\'hui':fmt(sel)}</span></div><div class="legend" style="margin-top:6px">${[['Pas',d.h.pas!=null?Math.round(d.h.pas).toLocaleString('fr-FR'):'—'],['kcal actives',d.h.kcal!=null?Math.round(d.h.kcal):'—'],['FC repos',d.h.fc!=null?Math.round(d.h.fc):'—']].map(z=>`<div><span>${z[0]}</span><b>${z[1]}</b></div>`).join('')}</div></div>`:''}
  <div class="daynav"><button data-nav="-1" aria-label="Jour précédent">‹</button><strong>${sel===TODAY?'Aujourd\'hui':fmt(sel)}</strong><button data-nav="1" aria-label="Jour suivant" ${sel>=TODAY?'disabled style="opacity:.3"':''}>›</button></div>
 
- <div class="card"><div class="row between"><h2>Sobriété</h2><span class="xp">+10</span></div>
+ <div class="card"><div class="row between"><h2>Sobriété</h2><span class="xp">+100 m</span></div>
   <div class="seg">${[['none','Sans alcool','0 verre'],['light','Modéré','1–2 verres'],['drink','Soirée','3 et +']].map(([v,a,b])=>`<button class="${v} ${d.alc===v?'on':''}" data-alc="${v}">${a}<small>${b}</small></button>`).join('')}</div>
+  <p class="small mute" style="margin-top:10px">Chaque semaine sobre complète ajoute ×0,25 à tout ce que tu gagnes (jusqu'à ×2). Une soirée = chute : la vitesse et le bonus repartent de zéro.</p>
  </div>
 
- <div class="card"><div class="row between"><h2>Sport</h2><span class="xp">+20</span></div>
+ <div class="card"><div class="row between"><h2>Sport</h2><span class="xp">+250 m</span></div>
   <p class="mute small">${pl?`Prévu : séance ${pl} · ${SES[pl].n}`:'Jour de repos prévu. Tu peux quand même bouger.'}</p>
   <div class="chips">${['A','B','C'].map(x=>`<button class="pill ${ses===x?'on':''}" data-ses="${x}">${x} · ${SES[x].n.split(' ')[0]}</button>`).join('')}<button class="pill ${ses==='run'?'on':''}" data-ses="run">Course</button><button class="pill ${ses==='ski'?'on':''}" data-ses="ski">Jour de ski</button></div>
   ${ses&&SES[ses]?(()=>{const nd=SES[ses].ex.filter((_,i)=>d.ex&&d.ex[ses+i]).length,nt=SES[ses].ex.length;return `<div class="row between" style="margin-top:12px"><div><b>${SES[ses].n}</b><div class="small mute">${SES[ses].plan.split(' · ')[0]} · ${nd}/${nt} exercices</div></div></div><div class="bar"><i style="width:${nd/nt*100}%"></i></div>${d.sport===ses?`<button class="cta done" data-work="1" style="width:100%;margin-top:12px">Séance validée ✓ · revoir</button>`:`<button class="cta" data-work="1" style="width:100%;margin-top:12px">${nd?'Reprendre la séance':'Démarrer la séance'}</button>`}`})():''}
   ${ses==='run'?`<p class="small" style="margin-top:12px"><b>Course à pied :</b> ${RUN.rx[ph]}. <span class="mute">${RUN.txt}</span></p><button class="cta ${d.sport==='run'?'done':''}" data-done="run" style="width:100%;margin-top:12px">${d.sport==='run'?'Course validée ✓ · annuler':'Valider la course'}</button>`:''}
-  ${ses==='ski'?`<p class="small" style="margin-top:12px"><b>Jour de ski :</b> <span class="mute">à cocher seulement les jours où tu skies vraiment. Ça compte comme une séance.</span></p><button class="cta ${d.sport==='ski'?'done':''}" data-done="ski" style="width:100%;margin-top:12px">${d.sport==='ski'?'Ski validé ✓ · annuler':'Valider la journée de ski'}</button>`:''}
-
+  ${ses==='ski'?`<p class="small" style="margin-top:12px"><b>Jour de ski : +500 m.</b> <span class="mute">À cocher seulement les jours où tu skies vraiment.</span></p><button class="cta ${d.sport==='ski'?'done':''}" data-done="ski" style="width:100%;margin-top:12px">${d.sport==='ski'?'Ski validé ✓ · annuler':'Valider la journée de ski'}</button>`:''}
  </div>
 
-
- <div class="card"><div class="row between"><h2>Eau</h2><span class="xp">+5</span></div>
-  <div class="row between" style="margin-top:6px;align-items:flex-end"><div class="num" style="font-size:42px;font-style:italic">${((d.wa||0)/1000).toFixed(2).replace('.',',').replace(/0$/,'')}<small style="font-size:22px"> L</small></div><span class="mute small" style="padding-bottom:10px">objectif ${(wGoal(d)/1000).toFixed(1).replace('.',',')} L${d.sport?' (jour de sport)':''}</span></div>
-  <div class="glasses">${Array.from({length:Math.ceil(wGoal(d)/250)},(_,i)=>`<i class="${(d.wa||0)>=(i+1)*250?'on':''}"></i>`).join('')}</div>
-  <div class="row" style="margin-top:12px"><button class="pill" data-wa="250">+ Verre 25 cl</button><button class="pill" data-wa="500">+ Bouteille 50 cl</button><button class="pill" data-wa="-250" aria-label="Retirer 25 cl">−</button></div>
- </div>
- <div class="card"><div class="row between"><h2>Assiette</h2><span class="xp">+15</span></div>
-  ${[['lu','Déjeuner'],['di','Dîner']].map(([f,lab])=>`<div class="mrow"><b>${lab}</b><div class="psts">${Object.keys(PISTE).map(p=>`<button class="pst ${d[f]===p?'on':''}" data-meal="${f}:${p}" style="--pc:${PISTE[p][1]}" aria-label="${lab} piste ${PISTE[p][0]}"><i></i>${PISTE[p][0]}</button>`).join('')}</div></div>`).join('')}
-  <p class="small mute" style="margin:2px 0 6px">Vert = léger · Bleu = équilibré · Rouge = lourd · Noir = festin</p>
-  <div class="mrow"><b>Dessert</b><div class="psts" style="grid-template-columns:repeat(3,minmax(0,1fr))">${[['non','Aucun'],['fruit','Fruit / yaourt'],['oui','Dessert']].map(([v,l])=>`<button class="pst ${d.de===v?'on':''}" data-de="${v}" style="--pc:${v==='oui'?'var(--r)':v==='fruit'?'var(--b)':'var(--g)'}">${l}</button>`).join('')}</div></div>
-  <div class="mrow"><b>Grignotage</b><div class="psts" style="grid-template-columns:repeat(3,minmax(0,1fr))"><button class="pst ${d.gr===0?'on':''}" data-gr="0" style="--pc:var(--g)">Aucun</button><div class="num" style="font-size:28px;font-style:italic;text-align:center;align-self:center">${d.gr>0?d.gr:'—'}</div><button class="pst" data-gr="+1" style="--pc:var(--r)">+1 écart</button></div></div>
-  <div class="idea" style="margin-top:14px"><div class="row between"><span class="small mute">3 idées avec ce que tu as</span><button class="pill" data-ish="1" style="min-height:34px;padding:6px 12px;font-size:13px">Autres idées</button></div>
-   ${ideas(sel).map(i=>`<button data-go="food" class="row between" style="flex-wrap:nowrap;width:100%;background:none;padding:8px 0;text-align:left;border-top:1px solid rgba(255,255,255,.06)"><span><span class="small mute">${i[0]}</span><b style="display:block">${i[1]}</b></span><span style="color:var(--acc);font-weight:800">›</span></button>`).join('')}</div>
+ <div class="card"><div class="row between"><h2>Défi bonus</h2><span class="xp">+100 m</span></div>
+  <button class="toggle" data-bon="1"><span class="chk ${d.bon?'on':''}">${d.bon?CHECK:''}</span><div><b>${defiOf(sel)}</b><span>Un défi par jour, en plus de la séance ou les jours de repos</span></div></button>
  </div>
 
- <div class="card"><div class="row between"><h2>Écrans</h2><span class="xp">+8</span></div>
-  ${(()=>{const op=d.op||{},tot=Object.values(op).reduce((a,b)=>a+b,0);return `<div class="legend" style="margin-top:10px">${Object.keys(RS).map(k=>`<div style="background:var(--card2)"><span>${RS[k]}</span><b>${op[k]||0}</b></div>`).join('')}</div><p class="small mute" style="margin-top:6px">${tot?`${tot} ouverture${tot>1?'s':''} aujourd'hui.`:'Aucune ouverture comptée aujourd\'hui.'} ${S.settings.scrGoal} min de réseaux par jour maximum.</p>`})()}
-  <label class="small mute" for="scr" style="display:block;margin-top:10px">Temps sur les réseaux (Réglages → Temps d'écran), le soir</label>
-  <div class="weight"><input id="scr" type="number" inputmode="numeric" min="0" max="900" placeholder="—" value="${d.scr!=null?d.scr:''}"><span class="num" style="font-size:22px">min</span></div>
-  <details class="mini" ${d.alt&&d.alt.length?'open':''}><summary><b>À la place, aujourd'hui${d.alt&&d.alt.length?' · '+d.alt.length:''}</b></summary>
-  <div class="chips" style="margin-top:0;padding-bottom:12px">${ALT.map(a=>`<button class="pill ${(d.alt||[]).includes(a[0])?'on':''}" data-alt="${a[0]}">${a[1]}</button>`).join('')}</div></details>
+ <div class="card"><div class="row between"><h2>Écrans</h2><span class="xp">+50 m</span></div>
+  ${(()=>{const op=d.op||{},tot=Object.values(op).reduce((a,b)=>a+b,0);return `<p class="small mute" style="margin-top:4px">${tot?`${tot} ouverture${tot>1?'s':''} des réseaux aujourd'hui · `:''}${S.settings.scrGoal} min maximum par jour.</p>`})()}
+  <div class="weight"><input id="scr" type="number" inputmode="numeric" min="0" max="900" placeholder="Minutes de réseaux, le soir" value="${d.scr!=null?d.scr:''}" style="font-size:20px"><span class="num" style="font-size:22px">min</span></div>
  </div>
  <details class="card" style="padding:0"><summary style="padding:16px 18px"><div><h2>Poids</h2><span class="small mute">${(()=>{const ks=Object.keys(S.days).filter(k=>S.days[k].w&&k<=sel).sort();return ks.length?`Dernière pesée : ${S.days[ks[ks.length-1]].w} kg, ${fmt(ks[ks.length-1])}`:'1 pesée par semaine, le matin à jeun'})()}</span></div></summary>
   <div class="det"><div class="weight" style="margin-top:0"><input id="w" type="number" inputmode="decimal" step="0.1" placeholder="—" value="${d.w||''}" aria-label="Poids en kg"><span class="num" style="font-size:22px">kg</span></div></div>
- </details></div>`}
+ </details>`}
 
 function vCal(){
  const[y,m]=calM.split('-').map(Number);const first=new Date(y,m-1,1),n=new Date(y,m,0).getDate(),off=(first.getDay()+6)%7,st=S.settings;
@@ -421,11 +446,12 @@ function vFood(){
  <div class="card"><h2>Déjeuners</h2><p class="small mute">Le déjeuner est ton repas le plus costaud : tu travailles debout.</p><ul class="small" style="padding-left:18px">${LUNCH.map(x=>`<li>${x}</li>`).join('')}</ul></div>`}
 
 function vMe(){
- const x=totalXP(),li=level(x),nx=LV[li+1],st=S.settings;
+ const x=game().tot,li=level(x),nx=LV[li+1],st=S.settings,g=gates();
  const pct=nx?(x-LV[li].min)/(nx.min-LV[li].min)*100:100;
  const ws=Object.keys(S.days).filter(k=>S.days[k].w).sort();const w0=ws.length?S.days[ws[0]].w:null,w1=ws.length?S.days[ws[ws.length-1]].w:null;
  return `<div class="top"><div><div class="sub">Depuis le ${fmt(st.start)}</div><h1>Bilan</h1></div></div>
- <div class="card"><div class="lvl"><div class="diamond"><i style="background:${LV[li].c}"></i></div><div style="flex:1"><span class="small mute">Niveau</span><h2>${LV[li].n}</h2><div class="bar"><i style="width:${pct}%"></i></div><p class="small mute">${x} XP${nx?` · ${nx.min-x} XP avant ${nx.n.toLowerCase()}`:''}</p></div></div></div>
+ <div class="card"><div class="lvl"><div class="diamond"><i style="background:${LV[li].c}"></i></div><div style="flex:1"><span class="small mute">Niveau</span><h2>${LV[li].n}</h2><div class="bar"><i style="width:${pct}%"></i></div><p class="small mute">${fm(x)} m de dénivelé${nx?` · ${fm(nx.min-x)} m avant la ${nx.n.toLowerCase()}`:''}</p></div></div></div>
+ <div class="card"><div class="row between"><h2>Le slalom</h2><span class="num" style="font-size:28px;font-style:italic">${g.filter(z=>z.state==='ok').length}<span class="mute" style="font-size:18px">/${g.length}</span></span></div><p class="small mute">Une porte par semaine jusqu'au départ de février. Pour la passer : 7 jours sobres jusqu'à Noël (puis ${st.alcTarget}), et toutes tes séances (2 pendant les fêtes).</p>${gatesRow(g)}</div>
  <div class="stats">
   <div class="stat"><span>Jours sans alcool</span><div class="num">${count(d=>d.alc==='none')}</div></div>
   <div class="stat"><span>Meilleure série</span><div class="num">${bestStreak()}</div></div>
@@ -439,7 +465,7 @@ function vMe(){
   return `<div class="stats" style="margin:12px 0 0"><div class="stat" style="background:var(--card2)"><span>FC au repos · 7 j</span><div class="num">${fc?Math.round(fc):'—'}</div><span>${fc&&fc0?(fc-fc0<=0?'▼ ':'▲ ')+Math.abs(fc-fc0).toFixed(1)+' vs semaine d\'avant':'Plus elle baisse, plus tu es en forme'}</span></div>
   <div class="stat" style="background:var(--card2)"><span>Pas · moyenne 7 j</span><div class="num">${pas?Math.round(pas/100)/10+'k':'—'}</div><span>Vise 8 000+</span></div>
   <div class="stat" style="background:var(--card2)"><span>Minutes d'exercice · 7 j</span><div class="num">${mn!=null?Math.round(mn):'—'}</div><span>Vise 150+ par semaine</span></div>
-  <div class="stat" style="background:var(--card2)"><span>Eau · moyenne 7 j</span><div class="num">${wa?(wa/1000).toFixed(1).replace('.',','):'—'}<small style="font-size:18px"> L</small></div><span>Objectif ${(S.settings.water/1000).toFixed(1).replace('.',',')} L</span></div></div>`})()}
+</div></div>`})()}
   <h3 style="margin-top:16px">FC au repos</h3><div class="fig" style="height:170px"><svg id="fsvg"></svg></div>
   <details style="background:var(--card2);margin:12px 0 0"><summary><b>Connecter ma montre (5 min, une seule fois)</b></summary><div class="det small">
   <p>Une appli web ne peut pas lire Apple Santé directement. On passe par un Raccourci iPhone qui envoie tes chiffres du jour à l'appli.</p>
@@ -452,8 +478,6 @@ function vMe(){
   <p class="mute">Tu peux aussi ajouter <code>&amp;poids=[Poids]</code> si tu as une balance connectée.</p></div></details>
  </div>
 
- <div class="card"><h2>Assiette · 7 jours</h2>${(()=>{let ok=0,tot=0,de=0,gr=0,z=0;for(let k=add(TODAY,-6);k<=TODAY;k=add(k,1)){const x=S.days[k];if(!x)continue;['lu','di'].forEach(f=>{if(x[f]){tot++;if(OKP.includes(x[f]))ok++}});if(x.de==='oui')de++;if(x.gr>0)gr+=x.gr;if(x.gr===0)z++}
-  return `<div class="stats" style="margin:12px 0 0"><div class="stat" style="background:var(--card2)"><span>Repas verts ou bleus</span><div class="num">${tot?Math.round(ok/tot*100)+'%':'—'}</div><span>${ok} sur ${tot} notés</span></div><div class="stat" style="background:var(--card2)"><span>Jours sans grignoter</span><div class="num">${z}</div><span>${gr} écart${gr>1?'s':''} · ${de} dessert${de>1?'s':''}</span></div></div>`})()}</div>
  <div class="card"><h2>Écrans</h2>${(()=>{let m=0,mn=0,op=0,al=0;for(let k=add(TODAY,-6);k<=TODAY;k=add(k,1)){const x=S.days[k];if(!x)continue;if(x.scr!=null){m+=x.scr;mn++}op+=Object.values(x.op||{}).reduce((a,b)=>a+b,0);if(x.alt&&x.alt.length)al++}
   return `<div class="stats" style="margin:12px 0 0"><div class="stat" style="background:var(--card2)"><span>Réseaux · moyenne 7 j</span><div class="num">${mn?Math.round(m/mn):'—'}<small style="font-size:18px"> min</small></div><span>Objectif ${S.settings.scrGoal} min</span></div><div class="stat" style="background:var(--card2)"><span>Ouvertures · 7 j</span><div class="num">${op}</div><span>Instagram, Facebook, YouTube</span></div></div><p class="small mute" style="margin-top:8px">${al} jour${al>1?'s':''} sur 7 avec podcast, musique, livre ou film à la place.</p>`})()}
   <details style="background:var(--card2);margin:12px 0 0"><summary><b>Compter mes ouvertures (3 min, une seule fois)</b></summary><div class="det small">
@@ -464,12 +488,11 @@ function vMe(){
   <li>Recommence pour Facebook (<code>?open=fb</code>) et YouTube (<code>?open=yt</code>).</li></ol>
   <p>En plus, pour le temps : <b>Réglages → Temps d'écran → Limites d'app</b>, une limite de ${S.settings.scrGoal} min par jour sur les réseaux sociaux. Demande à ta femme de choisir le code : c'est ce qui la rend vraiment efficace.</p></div></details>
  </div>
- <div class="card"><h2>Badges</h2><div class="badges" style="margin-top:12px">${badges().map(b=>`<div class="badge ${b[0]?'got':''}"><span class="num">${b[1]}</span>${b[2]}</div>`).join('')}</div></div>
+ <div class="card"><h2>Médailles</h2><div class="badges" style="margin-top:12px">${badges().map(b=>`<div class="badge ${b[0]?'got':''}"><span class="num">${b[1]}</span>${b[2]}</div>`).join('')}</div></div>
  <div class="card set"><h2>Réglages</h2>
   <label>Jours de séance (A, B, C dans l'ordre)</label><div class="days7">${[1,2,3,4,5,6,0].map(i=>`<button class="${st.sportDays.includes(i)?'on':''}" data-sd="${i}">${['D','L','M','M','J','V','S'][i]}</button>`).join('')}</div>
   <label for="skiDec">Ski de décembre (date de départ)</label><input type="date" id="skiDec" value="${st.skiDec}">
   <label for="skiFeb">Ski de février (date de départ)</label><input type="date" id="skiFeb" value="${st.skiFeb}">
-  <label for="wat">Objectif d'eau par jour (ml, +500 les jours de sport)</label><input type="number" id="wat" min="1000" max="4000" step="250" value="${st.water}">
   <label for="scrG">Objectif réseaux sociaux par jour (min)</label><input type="number" id="scrG" min="0" max="240" step="5" value="${st.scrGoal}">
   <label for="alcT">Objectif jours sans alcool par semaine (après Noël)</label><input type="number" id="alcT" min="0" max="7" value="${st.alcTarget}">
  </div>
@@ -514,24 +537,25 @@ let tt;const toast=m=>{const t=document.getElementById('toast');t.textContent=m;
 const go=v=>{view=v;history.replaceState(null,'','#'+v);render();scrollTo(0,0)};
 
 document.addEventListener('click',e=>{
- const b=e.target.closest('button');if(!b)return;const ds=b.dataset,d=()=>day(sel);
+ const b=e.target.closest('button');if(!b)return;const ds=b.dataset,d=()=>day(sel),m0=(game().by[sel]||{m:0}).m,l0=level(game().tot);
  if(ds.go){go(ds.go);return}
  if(ds.nav){const n=add(sel,+ds.nav);if(n<=TODAY){sel=n;openSes=null;render()}return}
- if(ds.alc){const x=d();x.alc=x.alc===ds.alc?undefined:ds.alc;save();render();if(x.alc==='none')toast(`+10 XP · série ${streak()}`);return}
+ if(ds.alc){const x=d();x.alc=x.alc===ds.alc?undefined:ds.alc;save();render();if(x.alc==='drink')toast('Chute ! On se relève demain');else gain(m0,l0);return}
  if(ds.ses){openSes=ds.ses;render();return}
  if(ds.work){const dd=S.days[sel]||{},p=planned(sel);if(!SES[openSes])openSes=SES[dd.sport]?dd.sport:(p||'A');WORK=true;render();scrollTo(0,0);return}
  if(ds.wclose){WORK=false;render();return}
- if(ds.ex){const x=d();x.ex=x.ex||{};x.ex[ds.ex]=!x.ex[ds.ex];const s=ds.ex[0];const all=SES[s].ex.every((_,i)=>x.ex[s+i]);if(all&&x.sport!==s){x.sport=s;toast('Séance bouclée · +20 XP')}save();render();return}
- if(ds.done){const x=d();if(x.sport===ds.done){x.sport=undefined}else{x.sport=ds.done;toast('+20 XP · bien joué')}save();render();return}
+ if(ds.ex){const x=d();x.ex=x.ex||{};x.ex[ds.ex]=!x.ex[ds.ex];const s=ds.ex[0];const all=SES[s].ex.every((_,i)=>x.ex[s+i]);if(all&&x.sport!==s){x.sport=s}save();render();gain(m0,l0);return}
+ if(ds.done){const x=d();if(x.sport===ds.done){x.sport=undefined}else{x.sport=ds.done}save();render();gain(m0,l0);return}
  if(ds.rest){clearInterval(window._rt);const id=b.id,lab=b.textContent;let t=+ds.rest;const tick=()=>{const el=document.getElementById(id);if(!el){clearInterval(window._rt);return}if(t<=0){el.textContent=lab;clearInterval(window._rt);toast('Repos terminé, série suivante');return}el.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;t--};tick();window._rt=setInterval(tick,1000);return}
  if(ds.meal){const[f,p]=ds.meal.split(':'),x=d();x[f]=x[f]===p?undefined:p;save();render();if(x[f]&&OKP.includes(p))toast('+5 XP');return}
  if(ds.de){const x=d();x.de=x.de===ds.de?undefined:ds.de;save();render();return}
  if(ds.gr){const x=d();if(ds.gr==='0'){x.gr=x.gr===0?undefined:0;if(x.gr===0)toast('Zéro grignotage · +5 XP')}else{x.gr=(x.gr||0)+1}save();render();return}
  if(ds.ish){S.ish=(S.ish||0)+3;save();render();return}
- if(ds.alt){const x=d();x.alt=x.alt||[];const had=x.alt.length;x.alt=x.alt.includes(ds.alt)?x.alt.filter(z=>z!==ds.alt):[...x.alt,ds.alt];save();render();if(!had&&x.alt.length)toast('+3 XP · bon choix');return}
- if(ds.ialt){const x=day(TODAY);x.alt=x.alt||[];if(!x.alt.includes(ds.ialt))x.alt.push(ds.ialt);INTR=null;save();sel=TODAY;render();toast('Bon choix · +3 XP');return}
+ if(ds.alt){const x=d();x.alt=x.alt||[];const had=x.alt.length;x.alt=x.alt.includes(ds.alt)?x.alt.filter(z=>z!==ds.alt):[...x.alt,ds.alt];save();render();gain(m0,l0);return}
+ if(ds.ialt){const x=day(TODAY);x.alt=x.alt||[];if(!x.alt.includes(ds.ialt))x.alt.push(ds.ialt);INTR=null;save();sel=TODAY;render();toast('Bon choix');return}
  if(ds.ipro){const x=day(TODAY);x.pro=(x.pro||0)+1;INTR=null;save();render();toast('Ok, 5 min chrono');return}
  if(ds.iclose){INTR=null;render();return}
+ if(ds.bon){const x=d();x.bon=!x.bon;save();render();gain(m0,l0);return}
  if(ds.wa){const x=d(),was=(x.wa||0)>=wGoal(x);x.wa=Math.max(0,(x.wa||0)+(+ds.wa));save();render();if(!was&&x.wa>=wGoal(x))toast('Objectif eau atteint · +5 XP');return}
  if(ds.t){const x=d();x[ds.t]=!x[ds.t];save();render();if(x[ds.t])toast('+5 XP');return}
  if(ds.day){sel=ds.day;openSes=null;go('today');return}
@@ -545,7 +569,7 @@ document.addEventListener('change',e=>{
  if(t.id==='w'){const v=parseFloat(String(t.value).replace(',','.'));const x=day(sel);if(v>30&&v<250)x.w=Math.round(v*10)/10;else delete x.w;save();toast(x.w?'Pesée enregistrée':'Pesée effacée');return}
  if(t.id==='skiDec'||t.id==='skiFeb'){S.settings[t.id]=t.value;save();return}
  if(t.id==='wat'){S.settings.water=Math.max(1000,Math.min(4000,parseInt(t.value)||2000));save();return}
- if(t.id==='scr'){const v=parseInt(t.value);const x=day(sel);if(v>=0&&v<=900)x.scr=v;else delete x.scr;save();render();if(x.scr!=null)toast(x.scr<=S.settings.scrGoal?'Sous l\'objectif · +5 XP':'Au-dessus de l\'objectif, demain on fait mieux');return}
+ if(t.id==='scr'){const v=parseInt(t.value);const x=day(sel);if(v>=0&&v<=900)x.scr=v;else delete x.scr;save();render();if(x.scr!=null)toast(x.scr<=S.settings.scrGoal?'Sous l\'objectif · +50 m':'Au-dessus de l\'objectif, demain on fait mieux');return}
  if(t.id==='scrG'){S.settings.scrGoal=Math.max(0,Math.min(240,parseInt(t.value)||30));save();return}
  if(t.id==='alcT'){S.settings.alcTarget=Math.max(0,Math.min(7,parseInt(t.value)||5));save();return}
  if(t.id==='imp'&&t.files[0]){const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(o&&o.days&&typeof o.days==='object'){S.days=o.days;S.settings=Object.assign({},DEF.settings,o.settings||{});save();render();toast('Données importées')}else toast('Fichier invalide')}catch(err){toast('Fichier invalide')}};r.readAsText(t.files[0])}
