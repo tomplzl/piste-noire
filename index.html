@@ -180,7 +180,8 @@ if(!S)S=JSON.parse(JSON.stringify(DEF));
 S.settings=Object.assign({},DEF.settings,S.settings||{});S.days=S.days||{};
 /* Sobre depuis le lundi 23 nov. inclus : saisie unique */
 if(!S.seed1){if(S.settings.start==='2026-11-25')S.settings.start='2026-11-23';['2026-11-23','2026-11-24'].forEach(k=>{const x=S.days[k]||(S.days[k]={});if(!x.alc)x.alc='none'});S.seed1=true;try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
-if(!S.seed2){['2026-11-23','2026-11-24','2026-11-25','2026-11-26','2026-11-27'].forEach(k=>{const x=S.days[k]||(S.days[k]={});if(!x.alc)x.alc='none'});S.seed2=true;try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+if(!S.seed2){['2026-11-23','2026-11-24','2026-11-25','2026-11-26'].forEach(k=>{const x=S.days[k]||(S.days[k]={});if(!x.alc)x.alc='none'});S.seed2=true;try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+if(!S.fix27){const x=S.days['2026-11-27'];if(x&&x.alc==='none'&&iso(new Date())==='2026-11-27'&&new Date().getHours()<21)delete x.alc;S.fix27=true;try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 
 const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -295,6 +296,7 @@ const RULES=[
 
 /* ============ CALCULS ============ */
 const day=k=>S.days[k]||(S.days[k]={});
+const VAL_H=21;const soberLocked=k=>k===TODAY&&new Date().getHours()<VAL_H;
 const planned=k=>{const wd=P(k).getDay();const sd=[...S.settings.sportDays].sort((a,b)=>((a+6)%7)-((b+6)%7));const i=sd.indexOf(wd);return i<0?null:'ABC'[i%3]};
 const wGoal=(d,k)=>S.settings.water+(d&&d.sport?500:0);
 const OKP=['g','b'];
@@ -388,7 +390,8 @@ function vToday(){
  <div class="daynav"><button data-nav="-1" aria-label="Jour précédent">‹</button><strong>${sel===TODAY?'Aujourd\'hui':fmt(sel)}</strong><button data-nav="1" aria-label="Jour suivant" ${sel>=TODAY?'disabled style="opacity:.3"':''}>›</button></div>
 
  <div class="card"><div class="row between"><h2>Sobriété</h2><span class="xp">+100 m</span></div>
-  <div class="seg">${[['none','Sans alcool','0 verre'],['light','Modéré','1–2 verres'],['drink','Soirée','3 et +']].map(([v,a,b])=>`<button class="${v} ${d.alc===v?'on':''}" data-alc="${v}">${a}<small>${b}</small></button>`).join('')}</div>
+  <div class="seg">${[['none','Sans alcool',soberLocked(sel)?'dès '+VAL_H+' h':'0 verre'],['light','Modéré','1–2 verres'],['drink','Soirée','3 et +']].map(([v,a,b])=>`<button class="${v} ${d.alc===v?'on':''}" data-alc="${v}" ${v==='none'&&soberLocked(sel)&&d.alc!=='none'?'style="opacity:.45"':''}>${a}<small>${b}</small></button>`).join('')}</div>
+  ${soberLocked(sel)&&d.alc!=='drink'&&d.alc!=='light'?`<p class="small" style="margin-top:10px;color:var(--acc2)">Journée en cours : la journée sobre se valide le soir, à partir de ${VAL_H} h. Oublié ? Reviens dessus le lendemain avec la flèche ‹.</p>`:''}
   <p class="small mute" style="margin-top:10px">Chaque semaine sobre complète ajoute ×0,25 à tout ce que tu gagnes (jusqu'à ×2). Une soirée = chute : la vitesse et le bonus repartent de zéro.</p>
  </div>
 
@@ -541,7 +544,7 @@ document.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;const ds=b.dataset,d=()=>day(sel),m0=(game().by[sel]||{m:0}).m,l0=level(game().tot);
  if(ds.go){go(ds.go);return}
  if(ds.nav){const n=add(sel,+ds.nav);if(n<=TODAY){sel=n;openSes=null;render()}return}
- if(ds.alc){const x=d();x.alc=x.alc===ds.alc?undefined:ds.alc;save();render();if(x.alc==='drink')toast('Chute ! On se relève demain');else gain(m0,l0);return}
+ if(ds.alc){if(ds.alc==='none'&&soberLocked(sel)&&(S.days[sel]||{}).alc!=='none'){toast(`À valider ce soir, dès ${VAL_H} h`);return}const x=d();x.alc=x.alc===ds.alc?undefined:ds.alc;save();render();if(x.alc==='drink')toast('Chute ! On se relève demain');else gain(m0,l0);return}
  if(ds.ses){openSes=ds.ses;render();return}
  if(ds.work){const dd=S.days[sel]||{},p=planned(sel);if(!SES[openSes])openSes=SES[dd.sport]?dd.sport:(p||'A');WORK=true;render();scrollTo(0,0);return}
  if(ds.wclose){WORK=false;render();return}
